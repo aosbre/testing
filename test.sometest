@@ -1,0 +1,62 @@
+import lxml.etree as ET
+
+def generate_pmml_transformation(var_1_1_name, var_1_2_name, var_1_3_name, allowed_values, datatype="string"):
+    """
+    Generates a PMML chain transformation using straightforward mapvalues, min, max, sum, minus, divide
+    to achieve the desired functionality.
+
+    Parameters:
+    - var_1_1_name: Name of the input variable to check against allowed values.
+    - var_1_2_name: Name of the output variable to set.
+    - var_1_3_name: Name of the variable whose value is copied if the condition is met.
+    - allowed_values: List of allowed values for var_1_1.
+    - datatype: Data type of the variables (default is "string").
+
+    Returns:
+    - PMML string representing the transformation.
+    """
+    # Root element
+    pmml = ET.Element("PMML", version="4.4", xmlns="http://www.dmg.org/PMML-4_4")
+    transformation_dict = ET.SubElement(pmml, "TransformationDictionary")
+    
+    # Define derived field var_1_2
+    derived_field = ET.SubElement(
+        transformation_dict, 
+        "DerivedField", 
+        name=var_1_2_name, 
+        optype="categorical", 
+        dataType=datatype
+    )
+    
+    # Define a MapValues element for var_1_2
+    map_values = ET.SubElement(derived_field, "MapValues", outputColumn="value")
+    inline_table = ET.SubElement(map_values, "InlineTable")
+    
+    # Add rows for the allowed values
+    for value in allowed_values:
+        row = ET.SubElement(inline_table, "row")
+        input_col = ET.SubElement(row, "input", column="value")
+        input_col.text = value
+        output_col = ET.SubElement(row, "output", column="value")
+        output_col.text = var_1_3_name
+    
+    # Add a default value for cases not in allowed_values
+    default_row = ET.SubElement(inline_table, "row")
+    input_col = ET.SubElement(default_row, "input", column="value")
+    input_col.text = "-1"  # Default value
+    output_col = ET.SubElement(default_row, "output", column="value")
+    output_col.text = "-1"
+    
+    # Return the PMML as a string
+    return ET.tostring(pmml, pretty_print=True).decode("utf-8")
+
+
+# Example usage:
+var_1_1 = "var_1_1"
+var_1_2 = "var_1_2"
+var_1_3 = "var_1_3"
+allowed_values = ["A", "B", "C"]
+datatype = "string"
+
+pmml_output = generate_pmml_transformation(var_1_1, var_1_2, var_1_3, allowed_values, datatype)
+print(pmml_output)
