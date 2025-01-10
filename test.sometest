@@ -142,5 +142,89 @@ pmml_output = generate_pmml_check_greater(var_input, var_output, threshold, data
 print(pmml_output)
 
 
+
+# ---------------------------
+import lxml.etree as ET
+
+def generate_pmml_check_greater_arithmetic(var_input_name, var_output_name, threshold, datatype="double"):
+    """
+    Generates a PMML transformation to compute output using arithmetic:
+    Output = var_input * var_ind_greater_than_threshold - var_ind_not_greater_than_threshold
+    
+    Parameters:
+    - var_input_name: Name of the input variable to check.
+    - var_output_name: Name of the output variable.
+    - threshold: Predefined value to compare against.
+    - datatype: Data type of the variables (default is "double").
+
+    Returns:
+    - PMML string representing the transformation.
+    """
+    # Root element
+    pmml = ET.Element("PMML", version="4.4", xmlns="http://www.dmg.org/PMML-4_4")
+    transformation_dict = ET.SubElement(pmml, "TransformationDictionary")
+    
+    # Derived field for subtraction (var_input - threshold)
+    derived_field_diff = ET.SubElement(
+        transformation_dict,
+        "DerivedField",
+        name=f"{var_input_name}_minus_threshold",
+        optype="continuous",
+        dataType=datatype
+    )
+    apply_diff = ET.SubElement(derived_field_diff, "Apply", function="-")
+    ET.SubElement(apply_diff, "FieldRef", field=var_input_name)
+    ET.SubElement(apply_diff, "Constant", dataType=datatype).text = str(threshold)
+    
+    # Derived field for var_ind_greater_than_threshold (1 if input > threshold, else 0)
+    derived_field_greater_flag = ET.SubElement(
+        transformation_dict,
+        "DerivedField",
+        name=f"{var_input_name}_greater_flag",
+        optype="continuous",
+        dataType=datatype
+    )
+    apply_greater_flag = ET.SubElement(derived_field_greater_flag, "Apply", function="min")
+    ET.SubElement(apply_greater_flag, "Constant", dataType=datatype).text = "1"
+    ET.SubElement(apply_greater_flag, "Apply", function="max")
+    ET.SubElement(apply_greater_flag[-1], "Constant", dataType=datatype).text = "0"
+    ET.SubElement(apply_greater_flag[-1], "FieldRef", field=f"{var_input_name}_minus_threshold")
+    
+    # Derived field for output
+    derived_field_output = ET.SubElement(
+        transformation_dict,
+        "DerivedField",
+        name=var_output_name,
+        optype="continuous",
+        dataType=datatype
+    )
+    apply_output = ET.SubElement(derived_field_output, "Apply", function="sum")
+    # var_input * var_ind_greater_than_threshold
+    apply_product = ET.SubElement(apply_output, "Apply", function="*")
+    ET.SubElement(apply_product, "FieldRef", field=var_input_name)
+    ET.SubElement(apply_product, "FieldRef", field=f"{var_input_name}_greater_flag")
+    # -1 * var_ind_not_greater_than_threshold
+    apply_negation = ET.SubElement(apply_output, "Apply", function="*")
+    ET.SubElement(apply_negation, "Constant", dataType=datatype).text = "-1"
+    apply_subtraction = ET.SubElement(apply_negation, "Apply", function="-")
+    ET.SubElement(apply_subtraction, "Constant", dataType=datatype).text = "1"
+    ET.SubElement(apply_subtraction, "FieldRef", field=f"{var_input_name}_greater_flag")
+    
+    # Return the PMML as a string
+    return ET.tostring(pmml, pretty_print=True).decode("utf-8")
+
+
+# Example usage:
+var_input = "var_input"
+var_output = "var_output"
+threshold = 10.0
+datatype = "double"
+
+pmml_output = generate_pmml_check_greater_arithmetic(var_input, var_output, threshold, datatype)
+print(pmml_output)
+
+
+
+
 pmml_output = generate_pmml_transformation(var_1_1, var_1_2, var_1_3, allowed_values, datatype)
 print(pmml_output)
