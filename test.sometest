@@ -58,5 +58,89 @@ var_1_3 = "var_1_3"
 allowed_values = ["A", "B", "C"]
 datatype = "string"
 
+
+
+import lxml.etree as ET
+
+def generate_pmml_check_greater(var_input_name, var_output_name, threshold, datatype="double"):
+    """
+    Generates a PMML transformation to check if a variable is greater than a predefined value
+    using basic operations (no if-else logic).
+
+    Parameters:
+    - var_input_name: Name of the input variable to check.
+    - var_output_name: Name of the output variable to set.
+    - threshold: Predefined value to compare against.
+    - datatype: Data type of the variables (default is "double").
+
+    Returns:
+    - PMML string representing the transformation.
+    """
+    # Root element
+    pmml = ET.Element("PMML", version="4.4", xmlns="http://www.dmg.org/PMML-4_4")
+    transformation_dict = ET.SubElement(pmml, "TransformationDictionary")
+    
+    # Derived field for subtraction (var_input - threshold)
+    derived_field_diff = ET.SubElement(
+        transformation_dict,
+        "DerivedField",
+        name=f"{var_input_name}_minus_threshold",
+        optype="continuous",
+        dataType=datatype
+    )
+    apply_diff = ET.SubElement(derived_field_diff, "Apply", function="-")
+    ET.SubElement(apply_diff, "FieldRef", field=var_input_name)
+    ET.SubElement(apply_diff, "Constant", dataType=datatype).text = str(threshold)
+    
+    # Derived field for min(0, var_input - threshold)
+    derived_field_min = ET.SubElement(
+        transformation_dict,
+        "DerivedField",
+        name=f"{var_input_name}_positive_part",
+        optype="continuous",
+        dataType=datatype
+    )
+    apply_min = ET.SubElement(derived_field_min, "Apply", function="max")
+    ET.SubElement(apply_min, "Constant", dataType=datatype).text = "0"
+    ET.SubElement(apply_min, "FieldRef", field=f"{var_input_name}_minus_threshold")
+    
+    # Derived field to map positive values to the desired output
+    derived_field_output = ET.SubElement(
+        transformation_dict,
+        "DerivedField",
+        name=var_output_name,
+        optype="categorical",
+        dataType=datatype
+    )
+    map_values = ET.SubElement(derived_field_output, "MapValues", outputColumn="value")
+    inline_table = ET.SubElement(map_values, "InlineTable")
+    
+    # Mapping: 0 -> Not greater, Positive -> Greater
+    not_greater_row = ET.SubElement(inline_table, "row")
+    input_col = ET.SubElement(not_greater_row, "input", column="value")
+    input_col.text = "0"
+    output_col = ET.SubElement(not_greater_row, "output", column="value")
+    output_col.text = "-1"  # Default value if not greater
+    
+    greater_row = ET.SubElement(inline_table, "row")
+    input_col = ET.SubElement(greater_row, "input", column="value")
+    input_col.text = "1"
+    output_col = ET.SubElement(greater_row, "output", column="value")
+    output_col.text = var_input_name  # Use input value if greater
+    
+    # Return the PMML as a string
+    return ET.tostring(pmml, pretty_print=True).decode("utf-8")
+
+
+# Example usage:
+var_input = "var_input"
+var_output = "var_output"
+threshold = 10.0
+datatype = "double"
+
+pmml_output = generate_pmml_check_greater(var_input, var_output, threshold, datatype)
+print(pmml_output)
+
+
 pmml_output = generate_pmml_transformation(var_1_1, var_1_2, var_1_3, allowed_values, datatype)
 print(pmml_output)
