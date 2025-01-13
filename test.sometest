@@ -40,10 +40,51 @@ def generate_pmml_min_function(var_list, output_name, min_constant=None, datatyp
     return ET.tostring(pmml, pretty_print=True).decode("utf-8")
 
 
+
+
 # Example usage:
 var_list = ["var_1", "var_2", "var_3"]
 output_name = "min_output"
 min_constant = 5
 
 pmml_output = generate_pmml_min_function(var_list, output_name, min_constant)
+
+
+def concatenate_pmml_transformations(transformations):
+    """
+    Concatenates multiple PMML ET elements (DerivedField) into a single TransformationDictionary.
+
+    Parameters:
+    - transformations: List of ET.Element objects, each representing a `<DerivedField>`.
+
+    Returns:
+    - ET.Element object representing the combined PMML.
+    """
+    # Root PMML element
+    pmml = ET.Element("PMML", version="4.4", xmlns="http://www.dmg.org/PMML-4_4")
+    transformation_dict = ET.SubElement(pmml, "TransformationDictionary")
+    
+    # Add each DerivedField to the TransformationDictionary
+    for transformation in transformations:
+        transformation_dict.append(transformation)
+    
+    return pmml
+
+
+# Example usage:
+# Assuming `transform1`, `transform2`, `transform3` are ET.Element objects representing DerivedFields
+from lxml.etree import Element
+
+# Example DerivedField elements for testing
+transform1 = Element("DerivedField", name="output1", optype="continuous", dataType="double")
+transform2 = Element("DerivedField", name="output2", optype="continuous", dataType="double")
+transform3 = Element("DerivedField", name="output3", optype="continuous", dataType="double")
+
+# Combine transformations
+pmml_combined = concatenate_pmml_transformations([transform1, transform2, transform3])
+
+# Print the resulting PMML
+import lxml.etree as ET
+print(ET.tostring(pmml_combined, pretty_print=True).decode("utf-8"))
+
 print(pmml_output)
