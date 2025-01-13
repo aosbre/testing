@@ -1,16 +1,15 @@
 import lxml.etree as ET
 
-def generate_pmml_check_in_list_arithmetic(var_input_name, var_output_name, var_reference_name, value_list, datatype="string"):
+def generate_pmml_min_function(var_list, output_name, min_constant=None, datatype="double"):
     """
-    Generates a PMML transformation to check if a variable is in a predefined list and 
-    set the output variable dynamically using arithmetic operations.
+    Generates a PMML transformation that computes the minimum value 
+    among a list of variables and an optional constant.
 
     Parameters:
-    - var_input_name: Name of the input variable to check.
-    - var_output_name: Name of the output variable to set.
-    - var_reference_name: Name of the variable to use for dynamic output.
-    - value_list: List of allowed values for `var_input_name`.
-    - datatype: Data type of the variables (default is "string").
+    - var_list: List of variable names to include in the min function.
+    - output_name: Name of the output variable.
+    - min_constant: Optional constant to include in the min function.
+    - datatype: Data type of the variables (default is "double").
 
     Returns:
     - PMML string representing the transformation.
@@ -19,54 +18,32 @@ def generate_pmml_check_in_list_arithmetic(var_input_name, var_output_name, var_
     pmml = ET.Element("PMML", version="4.4", xmlns="http://www.dmg.org/PMML-4_4")
     transformation_dict = ET.SubElement(pmml, "TransformationDictionary")
     
-    # Derived field for indicator of set membership
-    derived_field_in_list = ET.SubElement(
+    # Derived field for the min function
+    derived_field = ET.SubElement(
         transformation_dict,
         "DerivedField",
-        name=f"{var_input_name}_in_list_flag",
-        optype="categorical",
-        dataType="integer"
-    )
-    map_values = ET.SubElement(derived_field_in_list, "MapValues", outputColumn="flag")
-    for val in value_list:
-        row = ET.SubElement(map_values, "InlineTable", row="row")
-        ET.SubElement(row, "input", column="value").text = str(val)
-        ET.SubElement(row, "output", column="flag").text = "1"
-    # Default to 0 if not in the list
-    ET.SubElement(map_values, "DefaultValue").text = "0"
-    
-    # Derived field for output
-    derived_field_output = ET.SubElement(
-        transformation_dict,
-        "DerivedField",
-        name=var_output_name,
+        name=output_name,
         optype="continuous",
         dataType=datatype
     )
-    apply_output = ET.SubElement(derived_field_output, "Apply", function="sum")
+    apply_min = ET.SubElement(derived_field, "Apply", function="min")
     
-    # var_3 * var_ind_in_list
-    apply_product_in_list = ET.SubElement(apply_output, "Apply", function="*")
-    ET.SubElement(apply_product_in_list, "FieldRef", field=var_reference_name)
-    ET.SubElement(apply_product_in_list, "FieldRef", field=f"{var_input_name}_in_list_flag")
+    # Add FieldRef for each variable in the list
+    for var in var_list:
+        ET.SubElement(apply_min, "FieldRef", field=var)
     
-    # -1 * (1 - var_ind_in_list)
-    apply_negation = ET.SubElement(apply_output, "Apply", function="*")
-    ET.SubElement(apply_negation, "Constant", dataType=datatype).text = "-1"
-    apply_subtraction = ET.SubElement(apply_negation, "Apply", function="-")
-    ET.SubElement(apply_subtraction, "Constant", dataType=datatype).text = "1"
-    ET.SubElement(apply_subtraction, "FieldRef", field=f"{var_input_name}_in_list_flag")
+    # Add Constant if provided
+    if min_constant is not None:
+        ET.SubElement(apply_min, "Constant", dataType=datatype).text = str(min_constant)
     
     # Return the PMML as a string
     return ET.tostring(pmml, pretty_print=True).decode("utf-8")
 
 
 # Example usage:
-var_input = "var_1"
-var_output = "var_2"
-var_reference = "var_3"
-value_list = ["A", "B", "C"]
-datatype = "string"
+var_list = ["var_1", "var_2", "var_3"]
+output_name = "min_output"
+min_constant = 5
 
-pmml_output = generate_pmml_check_in_list_arithmetic(var_input, var_output, var_reference, value_list, datatype)
+pmml_output = generate_pmml_min_function(var_list, output_name, min_constant)
 print(pmml_output)
