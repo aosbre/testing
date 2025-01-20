@@ -1,10 +1,12 @@
-def add_transformations_to_local(tree, transformations):
+def add_transformations_to_local(tree, transformations_to_add, combination_flag=False):
     """
-    Adds the given list of transformation elements to the LocalTransformations node at the top.
+    Adds transformations to the LocalTransformations node at the top. 
+    If combination_flag is True, unwrap transformations inside <Start> and add them.
 
     Args:
         tree (ET.ElementTree): The XML tree to modify.
-        transformations (list of ET.Element): A list of transformation elements to add.
+        transformations_to_add (list of ET.Element): A list of transformations or wrappers to add.
+        combination_flag (bool): If True, unwrap and add transformations from <Start> where applicable.
 
     Returns:
         None: The tree is modified in place.
@@ -16,6 +18,18 @@ def add_transformations_to_local(tree, transformations):
     if local_transformations is None:
         raise ValueError("LocalTransformations node not found in the tree.")
 
-    # Insert the new transformations at the top of LocalTransformations
-    for transformation in reversed(transformations):  # Reverse to maintain order at the top
+    # Determine what to add based on the combination_flag
+    final_transformations = []
+    for transformation in transformations_to_add:
+        # Check if the transformation is a wrapper with a <Start> element
+        start_element = transformation.find('./Start')
+        if start_element is not None and combination_flag:
+            # Extract all transformations inside <Start>
+            final_transformations.extend(list(start_element))
+        else:
+            # Add the standalone transformation or wrapper as-is
+            final_transformations.append(transformation)
+
+    # Insert the transformations at the top of LocalTransformations
+    for transformation in reversed(final_transformations):  # Reverse to maintain order at the top
         local_transformations.insert(0, transformation)
