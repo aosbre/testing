@@ -1,55 +1,21 @@
-import xml.etree.ElementTree as ET
+def add_transformations_to_local(tree, transformations):
+    """
+    Adds the given list of transformation elements to the LocalTransformations node at the top.
 
-def delete_variables_from_datadictionary(pmml_file: str, variables_to_delete: list):
-    """
-    Delete variables from the DataDictionary in a PMML file.
-    
-    :param pmml_file: Path to the PMML file.
-    :param variables_to_delete: List of variable names to delete.
-    """
-    tree = ET.parse(pmml_file)
-    root = tree.getroot()
-    
-    # Locate the DataDictionary
-    data_dict = root.find(".//{http://www.dmg.org/PMML-4_4}DataDictionary")
-    if data_dict is None:
-        raise ValueError("DataDictionary not found in PMML file.")
-    
-    # Remove variables from DataDictionary
-    for data_field in data_dict.findall("{http://www.dmg.org/PMML-4_4}DataField"):
-        name = data_field.attrib.get("name")
-        if name in variables_to_delete:
-            data_dict.remove(data_field)
-    
-    # Save the modified PMML file
-    tree.write(pmml_file, xml_declaration=True, encoding="UTF-8")
+    Args:
+        tree (ET.ElementTree): The XML tree to modify.
+        transformations (list of ET.Element): A list of transformation elements to add.
 
-def add_variables_to_datadictionary(pmml_file: str, variables_to_add: list):
+    Returns:
+        None: The tree is modified in place.
     """
-    Add variables to the DataDictionary in a PMML file.
-    
-    :param pmml_file: Path to the PMML file.
-    :param variables_to_add: List of dictionaries defining new variables.
-                             Example: [{"name": "var1", "dataType": "integer", "optype": "categorical"}]
-    """
-    tree = ET.parse(pmml_file)
+    # Find the LocalTransformations node
     root = tree.getroot()
-    
-    # Locate the DataDictionary
-    data_dict = root.find(".//{http://www.dmg.org/PMML-4_4}DataDictionary")
-    if data_dict is None:
-        raise ValueError("DataDictionary not found in PMML file.")
-    
-    # Add new variables to DataDictionary
-    for var in variables_to_add:
-        new_field = ET.SubElement(data_dict, "{http://www.dmg.org/PMML-4_4}DataField", {
-            "name": var["name"],
-            "dataType": var["dataType"],
-            "optype": var["optype"]
-        })
-        if "values" in var:
-            for value in var["values"]:
-                ET.SubElement(new_field, "{http://www.dmg.org/PMML-4_4}Value", {"value": value})
-    
-    # Save the modified PMML file
-    tree.write(pmml_file, xml_declaration=True, encoding="UTF-8")
+    local_transformations = root.find('.//LocalTransformations')
+
+    if local_transformations is None:
+        raise ValueError("LocalTransformations node not found in the tree.")
+
+    # Insert the new transformations at the top of LocalTransformations
+    for transformation in reversed(transformations):  # Reverse to maintain order at the top
+        local_transformations.insert(0, transformation)
