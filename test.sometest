@@ -1,90 +1,55 @@
-import lxml.etree as ET
+import xml.etree.ElementTree as ET
 
-def generate_pmml_min_function(var_list, output_name, min_constant=None, datatype="double"):
+def delete_variables_from_datadictionary(pmml_file: str, variables_to_delete: list):
     """
-    Generates a PMML transformation that computes the minimum value 
-    among a list of variables and an optional constant.
-
-    Parameters:
-    - var_list: List of variable names to include in the min function.
-    - output_name: Name of the output variable.
-    - min_constant: Optional constant to include in the min function.
-    - datatype: Data type of the variables (default is "double").
-
-    Returns:
-    - PMML string representing the transformation.
+    Delete variables from the DataDictionary in a PMML file.
+    
+    :param pmml_file: Path to the PMML file.
+    :param variables_to_delete: List of variable names to delete.
     """
-    # Root element
-    pmml = ET.Element("PMML", version="4.4", xmlns="http://www.dmg.org/PMML-4_4")
-    transformation_dict = ET.SubElement(pmml, "TransformationDictionary")
+    tree = ET.parse(pmml_file)
+    root = tree.getroot()
     
-    # Derived field for the min function
-    derived_field = ET.SubElement(
-        transformation_dict,
-        "DerivedField",
-        name=output_name,
-        optype="continuous",
-        dataType=datatype
-    )
-    apply_min = ET.SubElement(derived_field, "Apply", function="min")
+    # Locate the DataDictionary
+    data_dict = root.find(".//{http://www.dmg.org/PMML-4_4}DataDictionary")
+    if data_dict is None:
+        raise ValueError("DataDictionary not found in PMML file.")
     
-    # Add FieldRef for each variable in the list
-    for var in var_list:
-        ET.SubElement(apply_min, "FieldRef", field=var)
+    # Remove variables from DataDictionary
+    for data_field in data_dict.findall("{http://www.dmg.org/PMML-4_4}DataField"):
+        name = data_field.attrib.get("name")
+        if name in variables_to_delete:
+            data_dict.remove(data_field)
     
-    # Add Constant if provided
-    if min_constant is not None:
-        ET.SubElement(apply_min, "Constant", dataType=datatype).text = str(min_constant)
-    
-    # Return the PMML as a string
-    return ET.tostring(pmml, pretty_print=True).decode("utf-8")
+    # Save the modified PMML file
+    tree.write(pmml_file, xml_declaration=True, encoding="UTF-8")
 
-
-
-
-# Example usage:
-var_list = ["var_1", "var_2", "var_3"]
-output_name = "min_output"
-min_constant = 5
-
-pmml_output = generate_pmml_min_function(var_list, output_name, min_constant)
-
-
-def concatenate_pmml_transformations(transformations):
+def add_variables_to_datadictionary(pmml_file: str, variables_to_add: list):
     """
-    Concatenates multiple PMML ET elements (DerivedField) into a single TransformationDictionary.
-
-    Parameters:
-    - transformations: List of ET.Element objects, each representing a `<DerivedField>`.
-
-    Returns:
-    - ET.Element object representing the combined PMML.
+    Add variables to the DataDictionary in a PMML file.
+    
+    :param pmml_file: Path to the PMML file.
+    :param variables_to_add: List of dictionaries defining new variables.
+                             Example: [{"name": "var1", "dataType": "integer", "optype": "categorical"}]
     """
-    # Root PMML element
-    pmml = ET.Element("PMML", version="4.4", xmlns="http://www.dmg.org/PMML-4_4")
-    transformation_dict = ET.SubElement(pmml, "TransformationDictionary")
+    tree = ET.parse(pmml_file)
+    root = tree.getroot()
     
-    # Add each DerivedField to the TransformationDictionary
-    for transformation in transformations:
-        transformation_dict.append(transformation)
+    # Locate the DataDictionary
+    data_dict = root.find(".//{http://www.dmg.org/PMML-4_4}DataDictionary")
+    if data_dict is None:
+        raise ValueError("DataDictionary not found in PMML file.")
     
-    return pmml
-
-
-# Example usage:
-# Assuming `transform1`, `transform2`, `transform3` are ET.Element objects representing DerivedFields
-from lxml.etree import Element
-
-# Example DerivedField elements for testing
-transform1 = Element("DerivedField", name="output1", optype="continuous", dataType="double")
-transform2 = Element("DerivedField", name="output2", optype="continuous", dataType="double")
-transform3 = Element("DerivedField", name="output3", optype="continuous", dataType="double")
-
-# Combine transformations
-pmml_combined = concatenate_pmml_transformations([transform1, transform2, transform3])
-
-# Print the resulting PMML
-import lxml.etree as ET
-print(ET.tostring(pmml_combined, pretty_print=True).decode("utf-8"))
-
-print(pmml_output)
+    # Add new variables to DataDictionary
+    for var in variables_to_add:
+        new_field = ET.SubElement(data_dict, "{http://www.dmg.org/PMML-4_4}DataField", {
+            "name": var["name"],
+            "dataType": var["dataType"],
+            "optype": var["optype"]
+        })
+        if "values" in var:
+            for value in var["values"]:
+                ET.SubElement(new_field, "{http://www.dmg.org/PMML-4_4}Value", {"value": value})
+    
+    # Save the modified PMML file
+    tree.write(pmml_file, xml_declaration=True, encoding="UTF-8")
